@@ -1,38 +1,87 @@
-# Real-Time Process Monitoring and CPU Scheduling Simulator
-
-## 📌 Project Overview
-The **Real-Time Process Monitoring and CPU Scheduling Simulator** is an Operating Systems project designed to simulate and analyze various CPU scheduling algorithms in a real-time environment.
-
-This simulator allows users to:
-- Add multiple processes
-- Monitor process states (Ready, Running, Waiting, Terminated)
-- Visualize execution using a Gantt chart
-- Calculate performance metrics such as:
-  - Waiting Time
-  - Turnaround Time
-  - Response Time
-  - CPU Utilization
-
-The project helps students understand how different scheduling algorithms affect system performance and efficiency.
-
----
-
-## 🚀 Features
-- ✅ First Come First Serve (FCFS)
-- ✅ Shortest Job First (SJF)
-- ✅ Round Robin (RR)
-- ✅ Priority Scheduling
-- ✅ Real-time process monitoring
-- ✅ Gantt chart visualization
-- ✅ Performance metrics calculation
-
----
-
-## 🛠️ Technologies Used
-- Programming Language: (C++ / Python / JavaScript)  
-- Data Structures  
-- Operating System Concepts  
-
----
-
-## 📂 Project Structure
+cpu-scheduling-simulator/
+│
+├── 📁 src/
+│   ├── main.(cpp/py/js)
+│   │   ├── Entry point of the simulator
+│   │   ├── Handles user input
+│   │   ├── Initializes scheduler
+│   │   └── Controls program execution flow
+│   │
+│   ├── process.(cpp/py/js)
+│   │   ├── Defines Process class/structure
+│   │   ├── Attributes:
+│   │   │     • Process ID
+│   │   │     • Arrival Time
+│   │   │     • Burst Time
+│   │   │     • Priority
+│   │   │     • Remaining Time
+│   │   │     • State (Ready, Running, Waiting, Terminated)
+│   │   └── Methods for process state management
+│   │
+│   ├── scheduler.(cpp/py/js)
+│   │   ├── Implements scheduling algorithms:
+│   │   │     • FCFS
+│   │   │     • SJF (Preemptive and Non-Preemptive)
+│   │   │     • Round Robin
+│   │   │     • Priority Scheduling
+│   │   └── Controls CPU allocation logic
+│   │
+│   ├── queue.(cpp/py/js)
+│   │   ├── Ready Queue implementation
+│   │   ├── Waiting Queue implementation
+│   │   └── Process insertion and removal logic
+│   │
+│   ├── metrics.(cpp/py/js)
+│   │   ├── Calculates:
+│   │   │     • Waiting Time
+│   │   │     • Turnaround Time
+│   │   │     • Response Time
+│   │   │     • CPU Utilization
+│   │   └── Displays performance results
+│   │
+│   └── gantt_chart.(cpp/py/js)
+│         ├── Generates Gantt chart
+│         ├── Displays execution timeline
+│         └── Shows process switching visually
+│
+│
+├── 📁 include/ (for C++ projects)
+│   ├── process.h
+│   ├── scheduler.h
+│   ├── queue.h
+│   ├── metrics.h
+│   └── gantt_chart.h
+│
+│
+├── 📁 data/
+│   ├── sample_input.txt
+│   │   ├── Contains predefined processes
+│   │   └── Used for testing simulator
+│   │
+│   └── sample_output.txt
+│
+│
+├── 📁 docs/
+│   ├── Project_Report.pdf
+│   ├── Algorithm_Explanation.pdf
+│   ├── Flowchart.png
+│   └── Screenshots/
+│
+│
+├── 📁 ui/ (if GUI version)
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+│
+│
+├── README.md
+│   ├── Project overview
+│   ├── Installation instructions
+│   ├── Usage guide
+│   └── Example output
+│
+│
+├── LICENSE
+│
+└── Makefile / requirements.txt / package.json
+    ├── For compilation or dependency management
