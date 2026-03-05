@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OS Scheduler Pro</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Rajdhani:wght@600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#020810;--panel:rgba(5,20,40,.9);--panel2:rgba(3,12,25,.92);
+  --border:rgba(0,200,255,.18);--b2:rgba(0,200,255,.07);
+  --c1:#00e5ff;--c2:#00ff9d;--c3:#ff6b35;--c4:#c77dff;
+  --c5:#ffd60a;--c6:#ff4d6d;--tx:#d0eeff;--mt:#3a6a84;
+  --hud:'Orbitron',monospace;--body:'Rajdhani',sans-serif;--mono:'Share Tech Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--tx);font-family:var(--body);min-height:100vh;overflow-x:hidden;}
+#bgc{position:fixed;inset:0;z-index:0;pointer-events:none;}
+.grid{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:linear-gradient(rgba(0,200,255,.022) 1px,transparent 1px),
+  linear-gradient(90deg,rgba(0,200,255,.022) 1px,transparent 1px);background-size:48px 48px;}
+.vign{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse at center,transparent 42%,rgba(0,0,0,.6) 100%);}
+.app{position:relative;z-index:2;display:flex;flex-direction:column;min-height:100vh;}
+
+/* ── HEADER ── */
+header{background:linear-gradient(180deg,rgba(0,20,40,.98),rgba(2,10,20,.95));
+  border-bottom:1px solid var(--border);padding:0 22px;
+  display:flex;align-items:center;justify-content:space-between;
+  height:62px;position:sticky;top:0;z-index:100;
+  box-shadow:0 4px 40px rgba(0,200,255,.07);}
+.hlogo{display:flex;align-items:center;gap:11px;}
+.hicon{width:36px;height:36px;border:1.5px solid var(--c1);border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 18px rgba(0,229,255,.28);animation:ipulse 3s infinite;}
+@keyframes ipulse{0%,100%{box-shadow:0 0 18px rgba(0,229,255,.28)}50%{box-shadow:0 0 34px rgba(0,229,255,.52)}}
+.hicon svg{width:19px;height:19px;}
+.htitle{font-family:var(--hud);font-size:13px;font-weight:900;color:var(--c1);letter-spacing:3px;}
+.hsub{font-size:9px;color:var(--mt);letter-spacing:1.5px;font-family:var(--mono);margin-top:1px;}
+.hstats{display:flex;gap:18px;}
+.hsv{font-family:var(--hud);font-size:15px;font-weight:700;color:var(--c1);transition:all .3s;display:block;}
+.hsl{font-size:8px;color:var(--mt);letter-spacing:1.5px;text-transform:uppercase;}
+.hright{display:flex;align-items:center;gap:12px;}
+.clk{font-family:var(--mono);font-size:12px;color:var(--c2);}
+.pill{padding:4px 11px;border-radius:20px;font-size:9px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;font-family:var(--hud);border:1px solid;transition:all .3s;}
+.pidle{border-color:var(--mt);color:var(--mt);}
+.prun{border-color:var(--c2);color:var(--c2);animation:blink 1s infinite;}
+.pdone{border-color:var(--c5);color:var(--c5);}
+.ppause{border-color:var(--c3);color:var(--c3);}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.55}}
+
+/* ── LAYOUT ── */
+.main{display:flex;flex:1;}
+.sidebar{width:306px;min-width:306px;background:var(--panel2);border-right:1px solid var(--border);
+  overflow-y:auto;padding:14px 12px;display:flex;flex-direction:column;gap:12px;}
+.sidebar::-webkit-scrollbar{width:3px;}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.content{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px;}
+.content::-webkit-scrollbar{width:4px;}
+.content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ── PANEL ── */
+.panel{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  overflow:hidden;backdrop-filter:blur(10px);transition:border-color .3s;}
+.panel:hover{border-color:rgba(0,200,255,.32);}
+.phdr{padding:8px 13px;background:linear-gradient(90deg,rgba(0,200,255,.06),transparent);
+  border-bottom:1px solid var(--b2);display:flex;align-items:center;justify-content:space-between;}
+.ptitle{font-family:var(--hud);font-size:9px;font-weight:700;letter-spacing:3px;
+  text-transform:uppercase;color:var(--c1);display:flex;align-items:center;gap:7px;}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;
+  box-shadow:0 0 8px currentColor;animation:dp 2s infinite;}
+@keyframes dp{0%,100%{opacity:1}50%{opacity:.3}}
+.dc{background:var(--c1);color:var(--c1);}
+.dg{background:var(--c2);color:var(--c2);}
+.do{background:var(--c3);color:var(--c3);}
+.dy{background:var(--c5);color:var(--c5);}
+.dpu{background:var(--c4);color:var(--c4);}
+.pb{padding:12px;}
+
+/* ── FORM ── */
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px;}
+label{display:block;font-size:8px;font-weight:700;letter-spacing:1.8px;
+  text-transform:uppercase;color:var(--mt);margin-bottom:3px;}
+input,select{width:100%;padding:7px 9px;background:rgba(0,20,40,.88);
+  border:1px solid rgba(0,200,255,.13);border-radius:6px;color:var(--tx);
+  font-family:var(--mono);font-size:12px;outline:none;transition:border-color .2s,box-shadow .2s;}
+input:focus,select:focus{border-color:var(--c1);box-shadow:0 0 10px rgba(0,229,255,.12);}
+
+/* ── BUTTONS ── */
+.btn{padding:8px 13px;border-radius:7px;border:1px solid;font-family:var(--body);
+  font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  cursor:pointer;transition:all .18s;display:inline-block;}
+.bcyan{background:rgba(0,229,255,.1);border-color:var(--c1);color:var(--c1);}
+.bcyan:hover{background:rgba(0,229,255,.22);box-shadow:0 0 16px rgba(0,229,255,.3);}
+.bgreen{background:rgba(0,255,157,.1);border-color:var(--c2);color:var(--c2);}
+.bgreen:hover{background:rgba(0,255,157,.2);box-shadow:0 0 16px rgba(0,255,157,.3);}
+.byellow{background:rgba(255,214,10,.1);border-color:var(--c5);color:var(--c5);}
+.byellow:hover{background:rgba(255,214,10,.2);}
+.bred{background:rgba(255,77,109,.08);border-color:var(--c6);color:var(--c6);}
+.bred:hover{background:rgba(255,77,109,.18);}
+.bpurple{background:rgba(199,125,255,.1);border-color:var(--c4);color:var(--c4);}
+.bpurple:hover{background:rgba(199,125,255,.2);}
+.btn:disabled{opacity:.3;cursor:not-allowed;pointer-events:none;}
+.bfull{width:100%;text-align:center;}
+.bsm{padding:4px 9px;font-size:9px;}
+.brow{display:flex;gap:7px;align-items:center;}
+
+/* ── ALGO CARDS ── */
+.agrid{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:9px;}
+.acard{padding:7px 8px;border-radius:7px;border:1px solid rgba(0,200,255,.1);
+  background:rgba(0,10,20,.6);cursor:pointer;transition:all .2s;text-align:center;}
+.acard:hover{border-color:var(--c1);background:rgba(0,200,255,.06);}
+.acard.active{border-color:var(--c1);background:rgba(0,200,255,.13);
+  box-shadow:0 0 13px rgba(0,200,255,.2);}
+.an{font-size:10px;font-weight:700;color:var(--c1);margin-bottom:1px;}
+.ad{font-size:8px;color:var(--mt);}
+
+/* ── QUEUE TABLE ── */
+.qt{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:11px;}
+.qt th{padding:5px 7px;border-bottom:1px solid var(--b2);color:var(--mt);
+  font-size:8px;letter-spacing:1.5px;text-transform:uppercase;font-weight:400;}
+.qt td{padding:6px 7px;border-bottom:1px solid rgba(0,200,255,.04);vertical-align:middle;}
+.qt tr:last-child td{border-bottom:none;}
+.qt tr:hover td{background:rgba(0,200,255,.025);}
+.qrm{background:transparent;border:1px solid rgba(255,77,109,.3);color:var(--c6);
+  border-radius:4px;padding:2px 6px;cursor:pointer;font-size:9px;transition:all .2s;}
+.qrm:hover{background:rgba(255,77,109,.15);}
+
+/* ── TABS ── */
+.tabs{display:flex;gap:3px;border-bottom:1px solid var(--b2);}
+.tab{padding:7px 13px;font-size:9px;font-weight:700;letter-spacing:2px;
+  text-transform:uppercase;border:1px solid transparent;border-radius:8px 8px 0 0;
+  cursor:pointer;color:var(--mt);background:transparent;transition:all .2s;font-family:var(--hud);}
+.tab:hover{color:var(--tx);}
+.tab.active{color:var(--c1);border-color:var(--border);border-bottom-color:var(--bg);
+  background:var(--panel);box-shadow:0 -2px 14px rgba(0,200,255,.1);}
+.tcon{display:none;}
+.tcon.active{display:block;animation:tfi .25s ease;}
+@keyframes tfi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* ── PROCESS CARDS ── */
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(138px,1fr));gap:10px;}
+.pcard{background:rgba(0,14,28,.88);border:1px solid rgba(0,200,255,.1);
+  border-radius:10px;padding:12px;text-align:center;position:relative;
+  overflow:hidden;transition:all .4s;}
+.pcard::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--cc,var(--c1));opacity:.55;}
+.pcard.snew{--cc:var(--c4);border-color:rgba(199,125,255,.22);}
+.pcard.sready{--cc:var(--c1);border-color:rgba(0,200,255,.22);}
+.pcard.srunning{--cc:var(--c2);border-color:var(--c2);animation:crun .7s infinite alternate;}
+@keyframes crun{from{box-shadow:0 0 12px rgba(0,255,157,.15)}to{box-shadow:0 0 28px rgba(0,255,157,.38)}}
+.pcard.swaiting{--cc:var(--c3);border-color:rgba(255,107,53,.22);}
+.pcard.sterminated{--cc:#444;border-color:rgba(60,60,60,.25);opacity:.4;}
+.pc-id{font-family:var(--hud);font-size:17px;font-weight:900;color:var(--cc,var(--c1));}
+.pc-badge{margin:5px auto 6px;display:inline-block;padding:2px 7px;border-radius:12px;
+  font-size:8px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;
+  border:1px solid var(--cc,var(--c1));color:var(--cc,var(--c1));background:rgba(0,0,0,.3);}
+.pc-bw{background:rgba(0,0,0,.4);border-radius:3px;height:4px;overflow:hidden;margin:6px 0;}
+.pc-bar{height:100%;border-radius:3px;transition:width .5s ease;
+  background:var(--cc,var(--c1));box-shadow:0 0 6px var(--cc,var(--c1));}
+.pc-st{font-family:var(--mono);font-size:9px;color:var(--mt);line-height:1.7;}
+.pc-st span{color:var(--cc,var(--c1));}
+
+/* ── GANTT ── */
+.gscroll{overflow-x:auto;padding-bottom:26px;}
+.gscroll::-webkit-scrollbar{height:4px;}
+.gscroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+.grow{display:flex;align-items:stretch;gap:2px;min-height:52px;position:relative;}
+.gblk{display:flex;align-items:center;justify-content:center;flex-direction:column;
+  min-width:34px;border-radius:6px;font-family:var(--mono);font-weight:700;
+  flex-shrink:0;position:relative;cursor:pointer;transition:transform .15s,filter .15s;
+  animation:gbin .2s ease;}
+@keyframes gbin{from{transform:scaleY(0);opacity:0}to{transform:scaleY(1);opacity:1}}
+.gblk:hover{transform:scaleY(1.08);filter:brightness(1.35);}
+.g-pid{font-size:10px;}
+.g-dur{font-size:7px;opacity:.6;}
+.g-t{position:absolute;bottom:-18px;left:0;font-size:8px;color:var(--mt);white-space:nowrap;}
+.gidle{background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.07);color:var(--mt);}
+#gtt{position:fixed;z-index:300;background:rgba(3,12,30,.97);border:1px solid var(--border);
+  border-radius:8px;padding:8px 12px;font-family:var(--mono);font-size:11px;
+  pointer-events:none;display:none;box-shadow:0 8px 32px rgba(0,0,0,.7);}
+
+/* ── METRICS TABLE ── */
+.mt{width:100%;border-collapse:collapse;font-size:11px;}
+.mt th{padding:8px 10px;border-bottom:1px solid var(--border);color:var(--c1);
+  font-size:8px;letter-spacing:2px;text-transform:uppercase;
+  font-weight:700;text-align:left;font-family:var(--hud);}
+.mt td{padding:8px 10px;border-bottom:1px solid rgba(0,200,255,.04);font-family:var(--mono);}
+.mt tr:hover td{background:rgba(0,200,255,.025);}
+.mt tr:last-child td{border-bottom:none;}
+.avgr td{background:rgba(0,200,255,.055)!important;color:var(--c1)!important;
+  font-weight:700;border-top:1px solid var(--border);}
+.vg{color:var(--c2)!important;}
+.vy{color:var(--c5)!important;}
+.vo{color:var(--c3)!important;}
+.vc{color:var(--c1)!important;}
+
+/* ── MEMORY ── */
+.mwrap{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:9px;}
+.mblk{height:34px;border-radius:4px;display:flex;align-items:center;
+  justify-content:center;font-family:var(--mono);font-size:9px;font-weight:700;}
+.mfree{background:rgba(255,255,255,.025);border:1px dashed rgba(255,255,255,.07);
+  color:rgba(255,255,255,.15);}
+
+/* ── STATE MACHINE ── */
+.sdwrap{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;padding:8px 0;}
+.sdn{width:70px;height:70px;border-radius:50%;border:2px solid;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-family:var(--hud);font-size:7px;letter-spacing:1.5px;text-transform:uppercase;flex-shrink:0;}
+.sdn.active{animation:sdp .8s infinite alternate;}
+@keyframes sdp{from{transform:scale(1)}to{transform:scale(1.1)}}
+.sdn-n{border-color:var(--c4);color:var(--c4);background:rgba(199,125,255,.06);}
+.sdn-r{border-color:var(--c1);color:var(--c1);background:rgba(0,229,255,.06);}
+.sdn-ru{border-color:var(--c2);color:var(--c2);background:rgba(0,255,157,.06);}
+.sdn-w{border-color:var(--c3);color:var(--c3);background:rgba(255,107,53,.06);}
+.sdn-t{border-color:#555;color:#555;background:rgba(80,80,80,.06);}
+.sdarr{color:var(--mt);font-size:16px;margin:0 3px;flex-shrink:0;}
+.sdicon{font-size:15px;margin-bottom:1px;}
+.sdcnt{font-size:7px;color:var(--mt);}
+
+/* ── COMPARE ── */
+.cmpgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(178px,1fr));gap:10px;}
+.cmpc{background:rgba(0,15,30,.75);border:1px solid var(--b2);border-radius:10px;padding:13px;}
+.cmpc h4{font-family:var(--hud);font-size:9px;letter-spacing:2px;color:var(--c1);margin-bottom:9px;}
+.cmpr{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--b2);font-size:10px;}
+.cmpr:last-child{border-bottom:none;}
+.cml{color:var(--mt);}.cmv{font-family:var(--mono);color:var(--c2);}
+
+/* ── MINI STATS ── */
+.msgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:13px;}
+.mscard{background:rgba(0,14,28,.78);border:1px solid var(--b2);border-radius:8px;padding:9px;text-align:center;}
+.msval{font-family:var(--hud);font-size:17px;font-weight:700;color:var(--c1);}
+.mslbl{font-size:8px;color:var(--mt);letter-spacing:1.5px;text-transform:uppercase;margin-top:2px;}
+
+/* ── LOG ── */
+.logbox{background:rgba(0,5,12,.88);border:1px solid var(--b2);border-radius:7px;
+  padding:8px;height:136px;overflow-y:auto;font-family:var(--mono);font-size:10px;line-height:1.7;}
+.logbox::-webkit-scrollbar{width:3px;}
+.logbox::-webkit-scrollbar-thumb{background:var(--border);}
+.le{animation:lein .18s ease;}
+@keyframes lein{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:none}}
+.le .lt{color:var(--c1);margin-right:6px;}
+.le.lrun .lm{color:var(--c2);}
+.le.ldone .lm{color:var(--c3);}
+.le.lstart .lm{color:var(--c5);}
+.le .lm{color:var(--mt);}
+
+/* ── MISC ── */
+.tag{display:inline-block;padding:1px 6px;border-radius:3px;font-size:8px;
+  background:rgba(0,200,255,.1);color:var(--c1);border:1px solid var(--b2);font-family:var(--mono);}
+.est{text-align:center;color:var(--mt);font-family:var(--mono);font-size:10px;padding:22px;opacity:.55;}
+.divider{border:none;border-top:1px solid var(--b2);margin:9px 0;}
+.col2{display:grid;grid-template-columns:1fr 1fr;gap:13px;}
+.srow{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--mt);}
+.srow input[type=range]{flex:1;accent-color:var(--c1);cursor:pointer;}
+canvas{display:block;}
+@media(max-width:880px){
+  .main{flex-direction:column;}.sidebar{width:100%;min-width:0;}
+  .msgrid{grid-template-columns:repeat(2,1fr);}.col2{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<canvas id="bgc"></canvas>
+<div class="grid"></div>
+<div class="vign"></div>
+<div id="gtt"></div>
+
+<div class="app">
+
+<!-- HEADER -->
+<header>
+  <div class="hlogo">
+    <div class="hicon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#00e5ff" stroke-width="2.5" stroke-linecap="round">
+        <rect x="2" y="3" width="20" height="14" rx="2"/>
+        <path d="M8 21h8M12 17v4M7 8l3 3-3 3M13 11h4"/>
+      </svg>
+    </div>
+    <div>
+      <div class="htitle">OS Scheduler Pro</div>
+      <div class="hsub">CPU SCHEDULING SIMULATOR &nbsp;|&nbsp; K Sai Rohith Reddy · Yash Singh Mehta · Gopal Kumar</div>
+    </div>
+  </div>
+  <div class="hstats">
+    <div><span class="hsv" id="hs-t">0</span><div class="hsl">Clock</div></div>
+    <div><span class="hsv" style="color:var(--c2)" id="hs-cpu">0%</span><div class="hsl">CPU Util</div></div>
+    <div><span class="hsv" style="color:var(--c5)" id="hs-awt">0.0</span><div class="hsl">Avg Wait</div></div>
+    <div><span class="hsv" style="color:var(--c3)" id="hs-att">0.0</span><div class="hsl">Avg TAT</div></div>
+    <div><span class="hsv" style="color:var(--c4)" id="hs-ctx">0</span><div class="hsl">Ctx Sw</div></div>
+  </div>
+  <div class="hright">
+    <span class="clk" id="clk">00:00:00</span>
+    <span class="pill pidle" id="pill">IDLE</span>
+  </div>
+</header>
+
+<div class="main">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+
+  <!-- Add Process -->
+  <div class="panel">
+    <div class="phdr"><div class="ptitle"><div class="dot dc"></div>Add Process</div><span class="tag" id="pcnt">0 procs</span></div>
+    <div class="pb">
+      <div class="frow">
+        <div><label>Process ID</label><input id="in-pid" value="P1" maxlength="5"></div>
+        <div><label>Arrival Time</label><input type="number" id="in-arr" value="0" min="0"></div>
+      </div>
+      <div class="frow">
+        <div><label>Burst Time</label><input type="number" id="in-bur" placeholder="5" min="1"></div>
+        <div><label>Priority (1=high)</label><input type="number" id="in-pri" value="3" min="1" max="10"></div>
+      </div>
+      <div class="frow">
+        <div><label>I/O Burst (0=none)</label><input type="number" id="in-io" value="0" min="0"></div>
+        <div><label>Memory (KB)</label><input type="number" id="in-mem" value="64" min="16" max="512" step="16"></div>
+      </div>
+      <button class="btn bcyan bfull" id="btn-add" onclick="addProcess()">+ ADD PROCESS</button>
+      <div style="text-align:right;margin-top:7px">
+        <button class="btn bsm" style="border-color:var(--mt);color:var(--mt);background:transparent" onclick="loadPreset()">LOAD PRESET ▸</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Algorithm -->
+  <div class="panel">
+    <div class="phdr"><div class="ptitle"><div class="dot dpu"></div>Algorithm</div><span class="tag" id="alg-tag">FCFS</span></div>
+    <div class="pb">
+      <div class="agrid">
+        <div class="acard active" id="alg-FCFS" onclick="setAlgo('FCFS')"><div class="an">FCFS</div><div class="ad">Non-preemptive</div></div>
+        <div class="acard" id="alg-SJF" onclick="setAlgo('SJF')"><div class="an">SJF</div><div class="ad">Shortest first</div></div>
+        <div class="acard" id="alg-SRTF" onclick="setAlgo('SRTF')"><div class="an">SRTF</div><div class="ad">Preemptive SJF</div></div>
+        <div class="acard" id="alg-PRI" onclick="setAlgo('PRI')"><div class="an">Priority</div><div class="ad">Non-preemptive</div></div>
+        <div class="acard" id="alg-RR" onclick="setAlgo('RR')" style="grid-column:span 2"><div class="an">Round Robin</div><div class="ad">Preemptive time-shared</div></div>
+      </div>
+      <div id="q-row" style="display:none;margin-bottom:8px">
+        <label>Time Quantum</label>
+        <input type="number" id="in-q" value="2" min="1" max="20">
+      </div>
+      <label>Context Switch Overhead</label>
+      <input type="number" id="in-ctx" value="0" min="0" max="5">
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="panel">
+    <div class="phdr"><div class="ptitle"><div class="dot dg"></div>Controls</div></div>
+    <div class="pb">
+      <label style="margin-bottom:5px">Simulation Speed</label>
+      <div class="srow" style="margin-bottom:11px">
+        <span>Slow</span>
+        <input type="range" id="in-spd" min="100" max="1400" value="800" step="100">
+        <span>Fast</span>
+      </div>
+      <div class="brow" style="margin-bottom:8px">
+        <button class="btn bgreen" id="btn-run" style="flex:2" onclick="runSim()" disabled>▶ RUN</button>
+        <button class="btn byellow" id="btn-pause" style="flex:1" onclick="togglePause()" disabled>⏸</button>
+        <button class="btn bred bsm" onclick="resetAll()">↺</button>
+      </div>
+      <button class="btn bpurple bfull" id="btn-cmp" onclick="compareAll()" disabled>⚡ COMPARE ALL ALGORITHMS</button>
+    </div>
+  </div>
+
+  <!-- Queue -->
+  <div class="panel">
+    <div class="phdr"><div class="ptitle"><div class="dot do"></div>Ready Queue</div></div>
+    <div class="pb" style="padding:6px 0 3px">
+      <table class="qt">
+        <thead><tr><th>PID</th><th>ARR</th><th>BUR</th><th>PRI</th><th></th></tr></thead>
+        <tbody id="q-tbody"></tbody>
+      </table>
+      <div id="q-empty" class="est" style="padding:12px">No processes yet</div>
+    </div>
+  </div>
+
+  <!-- Log -->
+  <div class="panel">
+    <div class="phdr"><div class="ptitle"><div class="dot dy"></div>Event Log</div></div>
+    <div class="pb" style="padding:7px"><div class="logbox" id="logbox"></div></div>
+  </div>
+
+</div><!-- /sidebar -->
+
+<!-- CONTENT -->
+<div class="content">
+  <div class="tabs">
+    <div class="tab active" onclick="stab('dash')">📊 Dashboard</div>
+    <div class="tab" onclick="stab('gantt')">📈 Gantt Chart</div>
+    <div class="tab" onclick="stab('metrics')">🧮 Metrics</div>
+    <div class="tab" onclick="stab('mem')">💾 Memory</div>
+    <div class="tab" onclick="stab('cmp')">⚡ Compare</div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="tcon active" id="tab-dash">
+    <div class="msgrid">
+      <div class="mscard"><div class="msval" id="ms-tot">0</div><div class="mslbl">Processes</div></div>
+      <div class="mscard"><div class="msval" style="color:var(--c2)" id="ms-done">0</div><div class="mslbl">Completed</div></div>
+      <div class="mscard"><div class="msval" style="color:var(--c5)" id="ms-rdy">0</div><div class="mslbl">In Queue</div></div>
+      <div class="mscard"><div class="msval" style="color:var(--c3)" id="ms-io">0</div><div class="mslbl">I/O Block</div></div>
+    </div>
+
+    <!-- State Machine -->
+    <div class="panel" style="margin-bottom:13px">
+      <div class="phdr"><div class="ptitle"><div class="dot dc"></div>Process State Machine</div></div>
+      <div class="pb">
+        <div class="sdwrap">
+          <div class="sdn sdn-n" id="sd-new"><div class="sdicon">🔵</div>NEW<div class="sdcnt" id="sd-n-c">0</div></div>
+          <div class="sdarr">→</div>
+          <div class="sdn sdn-r" id="sd-rdy"><div class="sdicon">⚡</div>READY<div class="sdcnt" id="sd-r-c">0</div></div>
+          <div class="sdarr">→</div>
+          <div class="sdn sdn-ru" id="sd-run"><div class="sdicon">🟢</div>RUNNING<div class="sdcnt" id="sd-ru-c">0</div></div>
+          <div class="sdarr">→</div>
+          <div class="sdn sdn-t" id="sd-term"><div class="sdicon">⬛</div>DONE<div class="sdcnt" id="sd-t-c">0</div></div>
+        </div>
+        <div style="text-align:center;margin-top:5px">
+          <div class="sdn sdn-w" style="width:64px;height:52px;border-radius:9px;margin:0 auto">
+            <div class="sdicon">🟠</div>I/O<div class="sdcnt" id="sd-w-c">0</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col2">
+      <div class="panel">
+        <div class="phdr"><div class="ptitle"><div class="dot dg"></div>CPU Utilization (Live)</div></div>
+        <div class="pb" style="padding:8px"><canvas id="cpu-c" height="130" style="width:100%"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="phdr"><div class="ptitle"><div class="dot dy"></div>Performance</div></div>
+        <div class="pb">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div>
+              <div style="font-size:8px;color:var(--mt);letter-spacing:1px;margin-bottom:2px">THROUGHPUT</div>
+              <div style="font-family:var(--hud);font-size:20px;color:var(--c2)" id="s-thr">0.000</div>
+              <div style="font-size:8px;color:var(--mt)">proc/unit</div>
+            </div>
+            <div>
+              <div style="font-size:8px;color:var(--mt);letter-spacing:1px;margin-bottom:2px">CTX SWITCHES</div>
+              <div style="font-family:var(--hud);font-size:20px;color:var(--c5)" id="s-ctx">0</div>
+              <div style="font-size:8px;color:var(--mt)">total</div>
+            </div>
+          </div>
+          <div class="divider"></div>
+          <div style="font-size:8px;color:var(--mt);margin-bottom:4px;letter-spacing:1px">ALGORITHM INFO</div>
+          <div id="alg-info" style="font-family:var(--mono);font-size:10px;color:var(--tx);line-height:1.75">Select algorithm and run.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="phdr"><div class="ptitle"><div class="dot dc"></div>Process Monitor</div><span class="tag" id="pm-tag">FCFS</span></div>
+      <div class="pb">
+        <div class="cgrid" id="cgrid">
+          <div class="est" style="grid-column:1/-1">Add processes and run simulation</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GANTT -->
+  <div class="tcon" id="tab-gantt">
+    <div class="panel" style="margin-bottom:13px">
+      <div class="phdr">
+        <div class="ptitle"><div class="dot dg"></div>Gantt Chart — <span id="gantt-alg" style="color:var(--c5)">FCFS</span></div>
+        <span style="font-family:var(--mono);font-size:9px;color:var(--mt)">Hover blocks for details</span>
+      </div>
+      <div class="pb"><div class="gscroll"><div class="grow" id="grow"><div class="est" style="width:100%">Run simulation to see Gantt chart</div></div></div></div>
+    </div>
+    <div class="panel" style="margin-bottom:13px">
+      <div class="phdr"><div class="ptitle"><div class="dot dc"></div>Legend</div></div>
+      <div class="pb"><div style="display:flex;gap:12px;flex-wrap:wrap" id="gleg"></div></div>
+    </div>
+    <div class="panel">
+      <div class="phdr"><div class="ptitle"><div class="dot do"></div>Execution Timeline</div></div>
+      <div class="pb" style="padding:0 0 4px">
+        <table class="mt"><thead><tr><th>PID</th><th>Arrival</th><th>Burst</th><th>First Run</th><th>Finish</th><th>Wait</th><th>TAT</th><th>Response</th></tr></thead>
+        <tbody id="tl-body"></tbody></table>
+        <div id="tl-empty" class="est">Run simulation</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- METRICS -->
+  <div class="tcon" id="tab-metrics">
+    <div class="msgrid">
+      <div class="mscard"><div class="msval" style="color:var(--c5)" id="mm-awt">—</div><div class="mslbl">Avg Wait</div></div>
+      <div class="mscard"><div class="msval" style="color:var(--c3)" id="mm-att">—</div><div class="mslbl">Avg TAT</div></div>
+      <div class="mscard"><div class="msval" style="color:var(--c1)" id="mm-art">—</div><div class="mslbl">Avg Response</div></div>
+      <div class="mscard"><div class="msval" style="color:var(--c2)" id="mm-cpu">—</div><div class="mslbl">CPU Util</div></div>
+    </div>
+    <div class="panel" style="margin-bottom:13px">
+      <div class="phdr"><div class="ptitle"><div class="dot dc"></div>Per-Process Metrics</div></div>
+      <div class="pb" style="padding:0 0 4px">
+        <table class="mt"><thead><tr><th>PID</th><th>Pri</th><th>Arr</th><th>Burst</th><th>I/O</th><th>Finish</th><th>Wait</th><th>TAT</th><th>Response</th><th>CPU%</th></tr></thead>
+        <tbody id="met-body"></tbody></table>
+        <div id="met-empty" class="est">Run simulation</div>
+      </div>
+    </div>
+    <div class="col2">
+      <div class="panel">
+        <div class="phdr"><div class="ptitle"><div class="dot dy"></div>Wait vs TAT Chart</div></div>
+        <div class="pb" style="padding:8px"><canvas id="bar-c" height="180" style="width:100%"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="phdr"><div class="ptitle"><div class="dot do"></div>Summary</div></div>
+        <div class="pb" id="sum-panel" style="font-family:var(--mono);font-size:10px;line-height:2;color:var(--mt)">Run simulation.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MEMORY -->
+  <div class="tcon" id="tab-mem">
+    <div class="panel" style="margin-bottom:13px">
+      <div class="phdr"><div class="ptitle"><div class="dot dpu"></div>Memory Map — 1024 KB Total</div></div>
+      <div class="pb">
+        <div class="mwrap" id="mem-map"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:7px" id="mem-leg"></div>
+        <div style="background:rgba(0,0,0,.4);border-radius:4px;height:8px;margin-top:10px;overflow:hidden">
+          <div id="mem-prog" style="height:100%;border-radius:4px;background:linear-gradient(90deg,var(--c4),var(--c1));transition:width .4s;width:0%"></div>
+        </div>
+        <div style="font-size:9px;color:var(--mt);margin-top:4px;font-family:var(--mono)">
+          Used: <span id="m-used" style="color:var(--c1)">0 KB</span> / 1024 KB — Free: <span id="m-free" style="color:var(--c2)">1024 KB</span>
+        </div>
+      </div>
+    </div>
+    <div class="col2">
+      <div class="panel">
+        <div class="phdr"><div class="ptitle"><div class="dot dc"></div>Allocation Table</div></div>
+        <div class="pb" style="padding:0 0 4px">
+          <table class="mt"><thead><tr><th>PID</th><th>Size (KB)</th><th>Base</th><th>Limit</th><th>State</th></tr></thead>
+          <tbody id="mem-tbody"></tbody></table>
+          <div id="mem-empty" class="est">No processes</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="phdr"><div class="ptitle"><div class="dot dg"></div>Memory Stats</div></div>
+        <div class="pb" style="display:grid;gap:8px">
+          <div class="mscard"><div class="msval" style="color:var(--c4)" id="ms-alloc">0 KB</div><div class="mslbl">Allocated</div></div>
+          <div class="mscard"><div class="msval" style="color:var(--c3)" id="ms-frag">0</div><div class="mslbl">Fragments</div></div>
+          <div class="mscard"><div class="msval" style="color:var(--c2)" id="ms-util">0%</div><div class="mslbl">Utilization</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMPARE -->
+  <div class="tcon" id="tab-cmp">
+    <div class="panel" style="margin-bottom:13px">
+      <div class="phdr"><div class="ptitle"><div class="dot dpu"></div>Algorithm Comparison</div></div>
+      <div class="pb">
+        <p style="font-size:10px;color:var(--mt);font-family:var(--mono);margin-bottom:11px">Click ⚡ COMPARE ALL ALGORITHMS to run all 5 algorithms and compare side-by-side.</p>
+        <div class="cmpgrid" id="cmp-grid"><div class="est" style="grid-column:1/-1">Click ⚡ COMPARE ALL ALGORITHMS in the sidebar</div></div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="phdr"><div class="ptitle"><div class="dot dy"></div>Comparison Chart</div></div>
+      <div class="pb" style="padding:10px"><canvas id="cmp-c" height="200" style="width:100%"></canvas></div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════════
+// PARTICLES
+// ═══════════════════════════════════════════
+(function(){
+  var cv = document.getElementById('bgc'), ctx = cv.getContext('2d');
+  var W, H, pts = [];
+  var COLS = ['#00e5ff','#00ff9d','#c77dff','#ffd60a'];
+  function resize(){ W = cv.width = innerWidth; H = cv.height = innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+  for(var i=0;i<80;i++) pts.push({
+    x: Math.random()*innerWidth, y: Math.random()*innerHeight,
+    vx:(Math.random()-.5)*.25, vy:(Math.random()-.5)*.25,
+    r: Math.random()*1.3+.3, a: Math.random()*.3+.05,
+    c: COLS[Math.floor(Math.random()*4)]
+  });
+  (function draw(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(function(p){
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0)p.x=W; if(p.x>W)p.x=0;
+      if(p.y<0)p.y=H; if(p.y>H)p.y=0;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle=p.c; ctx.globalAlpha=p.a; ctx.fill();
+    });
+    ctx.globalAlpha=1;
+    for(var i=0;i<pts.length;i++) for(var j=i+1;j<pts.length;j++){
+      var dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.sqrt(dx*dx+dy*dy);
+      if(d<105){ ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y);
+        ctx.strokeStyle='rgba(0,200,255,'+(0.05*(1-d/105))+')'; ctx.lineWidth=.5; ctx.stroke(); }
+    }
+    requestAnimationFrame(draw);
+  })();
+})();
+
+// ═══════════════════════════════════════════
+// GLOBAL STATE
+// ═══════════════════════════════════════════
+var procs = [];
+var algo  = 'FCFS';
+var running = false, paused = false;
+var simTO = null, pidC = 1, ctxSw = 0;
+var timeline = [], cpuHist = [];
+
+var COLORS = ['#00e5ff','#00ff9d','#ff6b35','#c77dff','#ffd60a','#ff4d6d','#43d9ad','#ff9ef5'];
+var AINFO = {
+  FCFS: 'Non-preemptive. Runs in arrival order. Simple but convoy effect causes short jobs to wait behind long ones.',
+  SJF:  'Non-preemptive Shortest Job First. Minimizes average waiting time but may starve long processes.',
+  SRTF: 'Preemptive SJF. Preempts the CPU if a new shorter job arrives. Optimal average waiting time.',
+  PRI:  'Non-preemptive Priority. Lower number = higher priority. Risk of starvation for low-priority processes.',
+  RR:   'Round Robin. Each process gets a time quantum. Fair, good response time, suitable for time-sharing systems.'
+};
+
+// ═══════════════════════════════════════════
+// CLOCK
+// ═══════════════════════════════════════════
+setInterval(function(){
+  var n = new Date();
+  document.getElementById('clk').textContent =
+    String(n.getHours()).padStart(2,'0')+':'+
+    String(n.getMinutes()).padStart(2,'0')+':'+
+    String(n.getSeconds()).padStart(2,'0');
+}, 1000);
+
+// ═══════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════
+function stab(id) {
+  var ids = ['dash','gantt','metrics','mem','cmp'];
+  var tabs = document.querySelectorAll('.tab');
+  ids.forEach(function(tid, i){ tabs[i].classList.toggle('active', tid === id); });
+  document.querySelectorAll('.tcon').forEach(function(c){ c.classList.remove('active'); });
+  document.getElementById('tab-'+id).classList.add('active');
+}
+
+// ═══════════════════════════════════════════
+// ALGORITHM
+// ═══════════════════════════════════════════
+function setAlgo(a) {
+  algo = a;
+  document.querySelectorAll('.acard').forEach(function(c){ c.classList.remove('active'); });
+  document.getElementById('alg-'+a).classList.add('active');
+  document.getElementById('q-row').style.display = (a === 'RR') ? 'block' : 'none';
+  document.getElementById('alg-tag').textContent = a;
+  document.getElementById('pm-tag').textContent  = a;
+  document.getElementById('gantt-alg').textContent = a;
+  document.getElementById('alg-info').textContent = AINFO[a];
+}
+
+// ═══════════════════════════════════════════
+// ADD / REMOVE PROCESS
+// ═══════════════════════════════════════════
+function addProcess() {
+  if (running && !paused) return;
+  var pid = document.getElementById('in-pid').value.trim() || ('P'+pidC);
+  var arr = parseInt(document.getElementById('in-arr').value) || 0;
+  var bur = parseInt(document.getElementById('in-bur').value);
+  var pri = parseInt(document.getElementById('in-pri').value) || 3;
+  var io  = parseInt(document.getElementById('in-io').value)  || 0;
+  var mem = parseInt(document.getElementById('in-mem').value) || 64;
+
+  if (!bur || bur < 1)                        { flash('Burst time must be ≥ 1', 'e'); return; }
+  if (procs.find(function(p){ return p.pid===pid; })) { flash('PID already exists', 'e'); return; }
+  if (procs.length >= 8)                      { flash('Maximum 8 processes', 'e'); return; }
+
+  var ci = procs.length % COLORS.length;
+  procs.push({ pid:pid, arr:arr, bur:bur, pri:pri, io:io, mem:mem,
+    state:'new', color:COLORS[ci],
+    rem:bur, start:null, fin:null, wt:null, tat:null, rt:null });
+  pidC++;
+  document.getElementById('in-pid').value = 'P' + pidC;
+  document.getElementById('in-bur').value = '';
+  var maxArr = procs.reduce(function(m,p){ return Math.max(m,p.arr); }, 0);
+  document.getElementById('in-arr').value = maxArr;
+
+  renderAll();
+  document.getElementById('btn-run').disabled = false;
+  document.getElementById('btn-cmp').disabled = false;
+  flash(pid + ' added', 's');
+}
+
+function removeProcess(pid) {
+  if (running) return;
+  procs = procs.filter(function(p){ return p.pid !== pid; });
+  procs.forEach(function(p,i){ p.color = COLORS[i % COLORS.length]; });
+  renderAll();
+  if (!procs.length) {
+    document.getElementById('btn-run').disabled = true;
+    document.getElementById('btn-cmp').disabled = true;
+  }
+}
+
+function loadPreset() {
+  if (running) return;
+  procs = []; pidC = 1;
+  var preset = [
+    {pid:'P1',arr:0,bur:8,pri:2,io:2,mem:128},
+    {pid:'P2',arr:1,bur:4,pri:1,io:0,mem:64},
+    {pid:'P3',arr:2,bur:9,pri:3,io:3,mem:256},
+    {pid:'P4',arr:3,bur:5,pri:2,io:0,mem:96},
+    {pid:'P5',arr:4,bur:2,pri:1,io:1,mem:64}
+  ];
+  preset.forEach(function(p,i){
+    procs.push({pid:p.pid,arr:p.arr,bur:p.bur,pri:p.pri,io:p.io,mem:p.mem,
+      state:'new',color:COLORS[i],rem:p.bur,start:null,fin:null,wt:null,tat:null,rt:null});
+  });
+  pidC = 6;
+  document.getElementById('in-pid').value = 'P6';
+  renderAll();
+  document.getElementById('btn-run').disabled = false;
+  document.getElementById('btn-cmp').disabled = false;
+  flash('Preset loaded — 5 processes', 's');
+}
+
+// ═══════════════════════════════════════════
+// FLASH
+// ═══════════════════════════════════════════
+function flash(msg, type) {
+  var el = document.createElement('div');
+  var ok = (type === 's');
+  var col = ok ? '#00ff9d' : '#ff4d6d';
+  el.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;'+
+    'padding:9px 15px;border-radius:7px;font-family:var(--mono);font-size:11px;'+
+    'border:1px solid '+col+';color:'+col+';'+
+    'background:'+(ok?'rgba(0,255,157,.08)':'rgba(255,77,109,.08)')+';';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(function(){ el.remove(); }, 2000);
+}
+
+// ═══════════════════════════════════════════
+// RENDER — QUEUE TABLE
+// ═══════════════════════════════════════════
+function renderQueue() {
+  var tb = document.getElementById('q-tbody');
+  var em = document.getElementById('q-empty');
+  document.getElementById('pcnt').textContent = procs.length + ' procs';
+  document.getElementById('ms-tot').textContent = procs.length;
+  if (!procs.length) { tb.innerHTML = ''; em.style.display = 'block'; return; }
+  em.style.display = 'none';
+  tb.innerHTML = procs.map(function(p){
+    var priCol = p.pri<=2 ? 'var(--c6)' : p.pri<=4 ? 'var(--c5)' : 'var(--mt)';
+    return '<tr>'+
+      '<td style="color:'+p.color+';font-weight:700">'+p.pid+'</td>'+
+      '<td>'+p.arr+'</td>'+
+      '<td>'+p.bur+(p.io?'<span style="color:var(--c5)">+'+p.io+'</span>':'')+'</td>'+
+      '<td style="color:'+priCol+'">'+p.pri+'</td>'+
+      '<td><button class="qrm" onclick="removeProcess(\''+p.pid+'\')">✕</button></td>'+
+    '</tr>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+// RENDER — PROCESS CARDS
+// ═══════════════════════════════════════════
+function renderCards(rt) {
+  var g = document.getElementById('cgrid');
+  if (!procs.length) {
+    g.innerHTML = '<div class="est" style="grid-column:1/-1">Add processes and run simulation</div>';
+    return;
+  }
+  g.innerHTML = procs.map(function(p){
+    var pct = rt ? Math.max(0, Math.round((1 - p.rem/p.bur)*100)) : 0;
+    return '<div class="pcard s'+p.state+'" style="--cc:'+p.color+'">'+
+      '<div class="pc-id" style="color:'+p.color+'">'+p.pid+'</div>'+
+      '<div class="pc-badge">'+p.state.toUpperCase()+'</div>'+
+      '<div class="pc-bw"><div class="pc-bar" style="width:'+pct+'%;background:'+p.color+'"></div></div>'+
+      '<div class="pc-st">BUR <span>'+p.bur+'</span> | REM <span>'+p.rem+'</span><br>'+
+      'PRI <span>'+p.pri+'</span> | ARR <span>'+p.arr+'</span>'+
+      (p.io?'<br>I/O <span>'+p.io+'</span>':'')+'</div>'+
+    '</div>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+// RENDER — STATE MACHINE
+// ═══════════════════════════════════════════
+function renderSD() {
+  var c = {new:0,ready:0,running:0,waiting:0,terminated:0};
+  procs.forEach(function(p){ c[p.state] = (c[p.state]||0) + 1; });
+  document.getElementById('sd-n-c').textContent  = c.new||0;
+  document.getElementById('sd-r-c').textContent  = c.ready||0;
+  document.getElementById('sd-ru-c').textContent = c.running||0;
+  document.getElementById('sd-w-c').textContent  = c.waiting||0;
+  document.getElementById('sd-t-c').textContent  = c.terminated||0;
+  document.getElementById('sd-run').classList.toggle('active', c.running > 0);
+  document.getElementById('sd-rdy').classList.toggle('active', c.ready > 0);
+  document.getElementById('ms-done').textContent = c.terminated||0;
+  document.getElementById('ms-rdy').textContent  = c.ready||0;
+  document.getElementById('ms-io').textContent   = c.waiting||0;
+}
+
+// ═══════════════════════════════════════════
+// RENDER — MEMORY MAP
+// ═══════════════════════════════════════════
+function renderMem() {
+  var mm = document.getElementById('mem-map');
+  var ml = document.getElementById('mem-leg');
+  var mt = document.getElementById('mem-tbody');
+  var me = document.getElementById('mem-empty');
+  if (!procs.length) {
+    mm.innerHTML='<span style="font-family:var(--mono);font-size:9px;color:var(--mt)">No processes</span>';
+    ml.innerHTML=mt.innerHTML=''; me.style.display='block';
+    document.getElementById('m-used').textContent='0 KB';
+    document.getElementById('m-free').textContent='1024 KB';
+    document.getElementById('mem-prog').style.width='0%';
+    document.getElementById('ms-alloc').textContent='0 KB';
+    document.getElementById('ms-frag').textContent='0';
+    document.getElementById('ms-util').textContent='0%';
+    return;
+  }
+  me.style.display='none';
+  var addr=0, allocs=[];
+  procs.forEach(function(p){
+    allocs.push({pid:p.pid,base:addr,size:p.mem,color:p.color,state:p.state});
+    addr+=p.mem;
+  });
+  var used=addr, free=Math.max(0,1024-used), sc=560/1024;
+  mm.innerHTML = allocs.map(function(a){
+    return '<div class="mblk" style="width:'+Math.max(26,Math.round(a.size*sc))+'px;'+
+      'background:'+a.color+'1a;border:1px solid '+a.color+'55;color:'+a.color+'">'+
+      a.pid+'<br><span style="font-size:8px;opacity:.7">'+a.size+'K</span></div>';
+  }).join('') + (free>0 ? '<div class="mblk mfree" style="width:'+Math.max(18,Math.round(free*sc))+'px">'+free+'K<br>FREE</div>' : '');
+  ml.innerHTML = allocs.map(function(a){
+    return '<div style="display:flex;align-items:center;gap:5px;font-size:9px;color:var(--mt)">'+
+      '<div style="width:10px;height:10px;border-radius:2px;background:'+a.color+'"></div>'+
+      '<span style="color:'+a.color+'">'+a.pid+'</span> '+a.base+'–'+(a.base+a.size-1)+' KB</div>';
+  }).join('');
+  mt.innerHTML = allocs.map(function(a){
+    return '<tr><td style="color:'+a.color+';font-weight:700">'+a.pid+'</td>'+
+      '<td class="vc">'+a.size+'</td><td>'+a.base+'</td><td>'+(a.base+a.size-1)+'</td>'+
+      '<td>'+a.state+'</td></tr>';
+  }).join('');
+  var pct=Math.min(100,Math.round((used/1024)*100));
+  document.getElementById('m-used').textContent=used+' KB';
+  document.getElementById('m-free').textContent=free+' KB';
+  document.getElementById('mem-prog').style.width=pct+'%';
+  document.getElementById('ms-alloc').textContent=used+' KB';
+  document.getElementById('ms-frag').textContent=free>0?1:0;
+  document.getElementById('ms-util').textContent=pct+'%';
+}
+
+// ═══════════════════════════════════════════
+// RENDER — GANTT
+// ═══════════════════════════════════════════
+function renderGantt(tl2, upTo) {
+  if (upTo === undefined) upTo = Infinity;
+  var row = document.getElementById('grow');
+  row.innerHTML = '';
+  var sl = tl2.filter(function(b){ return b.start < upTo; });
+  if (!sl.length) {
+    row.innerHTML='<div class="est" style="width:100%">Run simulation to see Gantt chart</div>';
+    return;
+  }
+  var totT = tl2[tl2.length-1] ? tl2[tl2.length-1].end : 1;
+  sl.forEach(function(b){
+    var dur = Math.min(b.end, upTo) - b.start;
+    var w   = Math.max(34, Math.round((dur/totT)*100)*6);
+    var div = document.createElement('div');
+    div.className = 'gblk' + (b.pid==='IDLE' ? ' gidle' : '');
+    div.style.width = w + 'px';
+    var p = procs.find(function(x){ return x.pid===b.pid; });
+    if (p) { div.style.background=p.color+'18'; div.style.border='1px solid '+p.color; div.style.color=p.color; }
+    div.innerHTML='<span class="g-pid">'+b.pid+'</span><span class="g-dur">'+dur+'u</span><span class="g-t">'+b.start+'</span>';
+    var tt = document.getElementById('gtt');
+    div.addEventListener('mouseenter', function(e){
+      tt.style.display='block';
+      tt.innerHTML='<b style="color:'+(p?p.color:'#888')+'">'+b.pid+'</b><br>Start: '+b.start+' | End: '+b.end+'<br>Duration: '+dur+' units';
+      tt.style.left=(e.clientX+12)+'px'; tt.style.top=(e.clientY-44)+'px';
+    });
+    div.addEventListener('mousemove',function(e){tt.style.left=(e.clientX+12)+'px';tt.style.top=(e.clientY-44)+'px';});
+    div.addEventListener('mouseleave',function(){tt.style.display='none';});
+    row.appendChild(div);
+  });
+  if (sl.length) {
+    var sp=document.createElement('span');
+    sp.style.cssText='font-family:var(--mono);font-size:8px;color:var(--mt);align-self:flex-end;padding-bottom:2px;padding-left:4px;';
+    sp.textContent=Math.min(upTo, tl2[tl2.length-1].end);
+    row.appendChild(sp);
+  }
+  document.getElementById('gleg').innerHTML = procs.map(function(p){
+    return '<div style="display:flex;align-items:center;gap:5px;font-size:9px;font-family:var(--mono)">'+
+      '<div style="width:12px;height:12px;border-radius:2px;background:'+p.color+'1a;border:1px solid '+p.color+'"></div>'+
+      '<span style="color:'+p.color+'">'+p.pid+'</span>'+
+      '<span style="color:var(--mt)">B:'+p.bur+' A:'+p.arr+'</span></div>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+// RENDER — METRICS
+// ═══════════════════════════════════════════
+function renderMetrics() {
+  var tb  = document.getElementById('met-body');
+  var em  = document.getElementById('met-empty');
+  var tlb = document.getElementById('tl-body');
+  var tle = document.getElementById('tl-empty');
+  var done = procs.filter(function(p){ return p.fin != null; });
+  if (!done.length) { tb.innerHTML=''; em.style.display='block'; tlb.innerHTML=''; tle.style.display='block'; return; }
+  em.style.display='none'; tle.style.display='none';
+  var totT = done.reduce(function(m,p){ return Math.max(m,p.fin); }, 0);
+  var busyT = done.reduce(function(s,p){ return s+p.bur; }, 0);
+  var cpuU = totT ? Math.round((busyT/totT)*100) : 0;
+  var awt = (done.reduce(function(s,p){ return s+(p.wt||0); },0)/done.length).toFixed(1);
+  var att = (done.reduce(function(s,p){ return s+(p.tat||0); },0)/done.length).toFixed(1);
+  var art = (done.reduce(function(s,p){ return s+(p.rt||0); },0)/done.length).toFixed(1);
+  var thr = (done.length/totT).toFixed(3);
+
+  ['hs-awt','mm-awt'].forEach(function(id){ document.getElementById(id).textContent=awt; });
+  ['hs-att','mm-att'].forEach(function(id){ document.getElementById(id).textContent=att; });
+  ['hs-cpu','mm-cpu'].forEach(function(id){ document.getElementById(id).textContent=cpuU+'%'; });
+  document.getElementById('mm-art').textContent=art;
+  document.getElementById('s-thr').textContent=thr;
+  ['s-ctx','hs-ctx'].forEach(function(id){ document.getElementById(id).textContent=ctxSw; });
+
+  tb.innerHTML = done.map(function(p){
+    var priCol = p.pri<=2?'var(--c6)':p.pri<=4?'var(--c5)':'var(--mt)';
+    return '<tr>'+
+      '<td style="color:'+p.color+';font-weight:700">'+p.pid+'</td>'+
+      '<td style="color:'+priCol+'">'+p.pri+'</td>'+
+      '<td>'+p.arr+'</td><td>'+p.bur+'</td><td>'+(p.io||0)+'</td>'+
+      '<td class="vc">'+p.fin+'</td>'+
+      '<td class="vy">'+p.wt+'</td>'+
+      '<td class="vo">'+p.tat+'</td>'+
+      '<td>'+p.rt+'</td>'+
+      '<td class="vg">'+(totT?Math.round((p.bur/totT)*100):0)+'%</td>'+
+    '</tr>';
+  }).join('') + '<tr class="avgr"><td colspan="5">AVERAGE</td><td>—</td><td>'+awt+'</td><td>'+att+'</td><td>'+art+'</td><td>'+cpuU+'%</td></tr>';
+
+  tlb.innerHTML = done.map(function(p){
+    return '<tr>'+
+      '<td style="color:'+p.color+';font-weight:700">'+p.pid+'</td>'+
+      '<td>'+p.arr+'</td><td>'+p.bur+'</td>'+
+      '<td class="vc">'+(p.start!=null?p.start:'—')+'</td>'+
+      '<td class="vg">'+(p.fin!=null?p.fin:'—')+'</td>'+
+      '<td class="vy">'+(p.wt!=null?p.wt:'—')+'</td>'+
+      '<td class="vo">'+(p.tat!=null?p.tat:'—')+'</td>'+
+      '<td>'+(p.rt!=null?p.rt:'—')+'</td>'+
+    '</tr>';
+  }).join('');
+
+  document.getElementById('sum-panel').innerHTML =
+    '<div><span style="color:var(--c1)">Algorithm:</span> '+algo+'</div>'+
+    '<div><span style="color:var(--c1)">Processes:</span> '+done.length+' completed</div>'+
+    '<div><span style="color:var(--c1)">Total Time:</span> '+totT+' units</div>'+
+    '<div><span style="color:var(--c1)">CPU Busy:</span> '+busyT+' units ('+cpuU+'%)</div>'+
+    '<div><span style="color:var(--c1)">CPU Idle:</span> '+(totT-busyT)+' units ('+(100-cpuU)+'%)</div>'+
+    '<div><span style="color:var(--c1)">Throughput:</span> '+thr+' proc/unit</div>'+
+    '<div><span style="color:var(--c1)">Ctx Switches:</span> '+ctxSw+'</div>'+
+    '<div><span style="color:var(--c5)">Avg Wait:</span> '+awt+' units</div>'+
+    '<div><span style="color:var(--c3)">Avg TAT:</span> '+att+' units</div>'+
+    '<div><span style="color:var(--c4)">Avg Response:</span> '+art+' units</div>';
+
+  drawBar();
+}
+
+function renderAll(rt) {
+  renderQueue(); renderCards(rt||false); renderSD(); renderMem();
+}
+
+// ═══════════════════════════════════════════
+// LOG
+// ═══════════════════════════════════════════
+function addLog(t, msg, type) {
+  type = type || '';
+  var box = document.getElementById('logbox');
+  var d = document.createElement('div');
+  d.className = 'le l' + type;
+  d.innerHTML = '<span class="lt">['+String(t).padStart(3,'0')+']</span><span class="lm">'+msg+'</span>';
+  box.appendChild(d);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ═══════════════════════════════════════════
+// CPU GRAPH
+// ═══════════════════════════════════════════
+function drawCPU() {
+  var cv = document.getElementById('cpu-c');
+  var W = cv.offsetWidth || 400, H = 130;
+  cv.width = W; cv.height = H;
+  var ctx = cv.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle='rgba(0,200,255,.05)'; ctx.lineWidth=1;
+  for(var i=0;i<=4;i++){
+    var y=H-4-(H-8)*(i/4);
+    ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();
+    ctx.fillStyle='rgba(0,200,255,.3)';ctx.font='8px Share Tech Mono';ctx.fillText((i*25)+'%',2,y-2);
+  }
+  if(!cpuHist.length) return;
+  var xs=W/Math.max(cpuHist.length,20);
+  ctx.beginPath();ctx.moveTo(0,H);
+  cpuHist.forEach(function(v,i){ctx.lineTo(i*xs,H-4-(H-8)*(v/100));});
+  ctx.lineTo((cpuHist.length-1)*xs,H);
+  var gr=ctx.createLinearGradient(0,0,0,H);
+  gr.addColorStop(0,'rgba(0,255,157,.28)');gr.addColorStop(1,'rgba(0,255,157,.02)');
+  ctx.fillStyle=gr;ctx.fill();
+  ctx.beginPath();ctx.strokeStyle='#00ff9d';ctx.lineWidth=2;ctx.lineJoin='round';
+  cpuHist.forEach(function(v,i){var x=i*xs,y=H-4-(H-8)*(v/100);i===0?ctx.moveTo(x,y):ctx.lineTo(x,y);});
+  ctx.stroke();
+}
+
+// ═══════════════════════════════════════════
+// BAR CHART
+// ═══════════════════════════════════════════
+function drawBar() {
+  var cv=document.getElementById('bar-c');
+  var W=cv.offsetWidth||400,H=180;cv.width=W;cv.height=H;
+  var ctx=cv.getContext('2d');ctx.clearRect(0,0,W,H);
+  var done=procs.filter(function(p){return p.fin!=null;});
+  if(!done.length)return;
+  var mV=done.reduce(function(m,p){return Math.max(m,p.wt||0,p.tat||0);},1);
+  var bw=Math.min(36,(W-40)/done.length-8),ys=(H-38)/mV;
+  done.forEach(function(p,i){
+    var x=20+i*(bw*2+10),th=(p.tat||0)*ys,wh=(p.wt||0)*ys;
+    ctx.fillStyle=p.color+'33';ctx.fillRect(x,H-22-th,bw,th);
+    ctx.strokeStyle=p.color;ctx.lineWidth=1.5;ctx.strokeRect(x,H-22-th,bw,th);
+    ctx.fillStyle='rgba(255,214,10,.22)';ctx.fillRect(x+bw+2,H-22-wh,bw,wh);
+    ctx.strokeStyle='#ffd60a';ctx.lineWidth=1;ctx.strokeRect(x+bw+2,H-22-wh,bw,wh);
+    ctx.fillStyle=p.color;ctx.font='8px Share Tech Mono';ctx.textAlign='center';ctx.fillText(p.pid,x+bw,H-6);
+  });
+  ctx.font='8px Share Tech Mono';ctx.textAlign='left';
+  ctx.fillStyle='rgba(0,229,255,.7)';ctx.fillRect(6,5,9,6);ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillText('TAT',18,12);
+  ctx.fillStyle='rgba(255,214,10,.6)';ctx.fillRect(50,5,9,6);ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillText('Wait',62,12);
+}
+
+// ═══════════════════════════════════════════
+// SCHEDULING ALGORITHMS
+// ═══════════════════════════════════════════
+function cloneP() {
+  return procs.map(function(p){
+    return {pid:p.pid,arr:p.arr,bur:p.bur,pri:p.pri,io:p.io,mem:p.mem,
+      color:p.color,state:'new',rem:p.bur,done:false,frun:null,
+      start:null,fin:null,wt:0,tat:0,rt:0};
+  });
+}
+
+function schedFCFS(ps) {
+  var s=ps.slice().sort(function(a,b){return a.arr-b.arr;}),tl=[],t=0,lp=null,cx=0;
+  s.forEach(function(p){
+    if(t<p.arr){tl.push({pid:'IDLE',start:t,end:p.arr});t=p.arr;}
+    if(lp&&lp!==p.pid)cx++;
+    p.start=t;p.rt=t-p.arr;
+    tl.push({pid:p.pid,start:t,end:t+p.bur});
+    p.fin=t+p.bur;p.wt=t-p.arr;p.tat=p.fin-p.arr;t+=p.bur;lp=p.pid;
+  });
+  return{tl:tl,cx:cx,ps:s};
+}
+
+function schedSJF(ps) {
+  var pl=ps.slice().sort(function(a,b){return a.arr-b.arr;}),tl=[],t=0,done=0,cx=0,lp=null;
+  while(done<pl.length){
+    var av=pl.filter(function(p){return p.arr<=t&&!p.done;});
+    if(!av.length){var nx=pl.find(function(p){return !p.done;});if(!nx)break;tl.push({pid:'IDLE',start:t,end:nx.arr});t=nx.arr;continue;}
+    av.sort(function(a,b){return a.bur-b.bur;});
+    var p=av[0];if(lp&&lp!==p.pid)cx++;
+    p.start=t;p.rt=t-p.arr;tl.push({pid:p.pid,start:t,end:t+p.bur});
+    t+=p.bur;p.fin=t;p.wt=p.start-p.arr;p.tat=p.fin-p.arr;p.done=true;done++;lp=p.pid;
+  }
+  return{tl:tl,cx:cx,ps:pl};
+}
+
+function schedSRTF(ps) {
+  var pl=ps.map(function(p){return Object.assign({},p,{rem:p.bur,done:false,frun:null});});
+  pl.sort(function(a,b){return a.arr-b.arr;});
+  var tl=[],t=0,done=0,cx=0,lp=null;
+  while(done<pl.length){
+    var av=pl.filter(function(p){return p.arr<=t&&!p.done;});
+    if(!av.length){var nx=pl.find(function(p){return !p.done;});if(!nx)break;tl.push({pid:'IDLE',start:t,end:nx.arr});t=nx.arr;continue;}
+    av.sort(function(a,b){return a.rem-b.rem;});
+    var p=av[0];
+    if(p.frun===null)p.frun=t;
+    if(lp&&lp!==p.pid)cx++;lp=p.pid;
+    var fut=pl.filter(function(q){return q.arr>t&&!q.done;}).map(function(q){return q.arr;});
+    var ne=fut.length?Math.min.apply(null,fut.concat([t+p.rem])):t+p.rem;
+    var rf=Math.min(p.rem,ne-t);
+    if(tl.length&&tl[tl.length-1].pid===p.pid)tl[tl.length-1].end+=rf;
+    else tl.push({pid:p.pid,start:t,end:t+rf});
+    t+=rf;p.rem-=rf;
+    if(p.rem===0){p.done=true;done++;p.fin=t;p.tat=t-p.arr;p.wt=p.tat-p.bur;p.start=p.frun;p.rt=p.frun-p.arr;}
+  }
+  return{tl:tl,cx:cx,ps:pl};
+}
+
+function schedPRI(ps) {
+  var pl=ps.slice().sort(function(a,b){return a.arr-b.arr;}),tl=[],t=0,done=0,cx=0,lp=null;
+  while(done<pl.length){
+    var av=pl.filter(function(p){return p.arr<=t&&!p.done;});
+    if(!av.length){var nx=pl.find(function(p){return !p.done;});if(!nx)break;tl.push({pid:'IDLE',start:t,end:nx.arr});t=nx.arr;continue;}
+    av.sort(function(a,b){return a.pri-b.pri;});
+    var p=av[0];if(lp&&lp!==p.pid)cx++;
+    p.start=t;p.rt=t-p.arr;tl.push({pid:p.pid,start:t,end:t+p.bur});
+    t+=p.bur;p.fin=t;p.wt=p.start-p.arr;p.tat=p.fin-p.arr;p.done=true;done++;lp=p.pid;
+  }
+  return{tl:tl,cx:cx,ps:pl};
+}
+
+function schedRR(ps, q, cc) {
+  cc=cc||0;
+  var pl=ps.map(function(p){return Object.assign({},p,{rem:p.bur,done:false,fr:-1});});
+  pl.sort(function(a,b){return a.arr-b.arr;});
+  var tl=[],queue=[],t=0,done=0,arrived=0,cx=0,lp=null;
+  while(arrived<pl.length&&pl[arrived].arr<=t)queue.push(pl[arrived++]);
+  while(done<pl.length){
+    if(!queue.length){
+      var nx=pl[arrived];if(!nx)break;
+      tl.push({pid:'IDLE',start:t,end:nx.arr});t=nx.arr;
+      while(arrived<pl.length&&pl[arrived].arr<=t)queue.push(pl[arrived++]);
+      continue;
+    }
+    var p=queue.shift();
+    if(lp&&lp!==p.pid){cx++;if(cc>0){tl.push({pid:'CTX',start:t,end:t+cc});t+=cc;}}
+    if(p.fr<0){p.fr=t;p.rt=t-p.arr;}
+    var rf=Math.min(q,p.rem);
+    if(tl.length&&tl[tl.length-1].pid===p.pid)tl[tl.length-1].end+=rf;
+    else tl.push({pid:p.pid,start:t,end:t+rf});
+    t+=rf;p.rem-=rf;lp=p.pid;
+    while(arrived<pl.length&&pl[arrived].arr<=t)queue.push(pl[arrived++]);
+    if(p.rem>0)queue.push(p);
+    else{p.done=true;done++;p.fin=t;p.tat=t-p.arr;p.wt=p.tat-p.bur;p.start=p.fr;}
+  }
+  return{tl:tl,cx:cx,ps:pl};
+}
+
+function runScheduler(a, ps) {
+  var q  = parseInt(document.getElementById('in-q').value)   || 2;
+  var cc = parseInt(document.getElementById('in-ctx').value) || 0;
+  if(a==='FCFS') return schedFCFS(ps);
+  if(a==='SJF')  return schedSJF(ps);
+  if(a==='SRTF') return schedSRTF(ps);
+  if(a==='PRI')  return schedPRI(ps);
+  return schedRR(ps, q, cc);
+}
+
+// ═══════════════════════════════════════════
+// RUN SIMULATION
+// ═══════════════════════════════════════════
+function runSim() {
+  if (running || !procs.length) return;
+  running=true; paused=false; cpuHist=[]; ctxSw=0; timeline=[];
+
+  document.getElementById('btn-run').disabled=true;
+  document.getElementById('btn-pause').disabled=false;
+  setPill('prun','RUNNING');
+
+  procs.forEach(function(p){
+    p.state='new'; p.rem=p.bur;
+    p.start=null; p.fin=null; p.wt=null; p.tat=null; p.rt=null;
+  });
+
+  var res = runScheduler(algo, cloneP());
+  timeline = res.tl;
+  ctxSw    = res.cx;
+
+  // Write metrics back to procs
+  res.ps.forEach(function(rp){
+    var p=procs.find(function(x){return x.pid===rp.pid;});
+    if(p){ p.start=rp.start; p.fin=rp.fin; p.wt=rp.wt; p.tat=rp.tat; p.rt=rp.rt; }
+  });
+
+  document.getElementById('logbox').innerHTML='';
+  addLog(0,'▶ Started | '+algo+(algo==='RR'?' Q='+document.getElementById('in-q').value:'')+' | '+procs.length+' processes','start');
+
+  var step=0;
+  function tick(){
+    if(paused){simTO=setTimeout(tick,180);return;}
+    if(step>=timeline.length){
+      procs.forEach(function(p){p.state='terminated';p.rem=0;});
+      renderAll(true);
+      renderGantt(timeline);
+      renderMetrics();
+      setPill('pdone','COMPLETE');
+      document.getElementById('hs-t').textContent=timeline[timeline.length-1]?timeline[timeline.length-1].end:0;
+      addLog(timeline[timeline.length-1]?timeline[timeline.length-1].end:0,'✓ All processes terminated.','done');
+      running=false;
+      document.getElementById('btn-run').disabled=false;
+      document.getElementById('btn-pause').disabled=true;
+      drawCPU(); return;
+    }
+    var b=timeline[step], t=b.end;
+    document.getElementById('hs-t').textContent=t;
+    var busy=timeline.slice(0,step+1).filter(function(x){return x.pid!=='IDLE'&&x.pid!=='CTX';})
+      .reduce(function(s,x){return s+(x.end-x.start);},0);
+    cpuHist.push(t>0?Math.round((busy/t)*100):0);
+    drawCPU();
+
+    if(b.pid!=='IDLE'&&b.pid!=='CTX'){
+      var p=procs.find(function(x){return x.pid===b.pid;});
+      if(p){
+        procs.forEach(function(x){
+          if(x.pid!==b.pid&&x.state!=='terminated')
+            x.state=x.arr<=b.start?'ready':'new';
+        });
+        p.state='running';
+        var rsf=timeline.slice(0,step+1).filter(function(x){return x.pid===p.pid;})
+          .reduce(function(s,x){return s+(x.end-x.start);},0);
+        p.rem=Math.max(0,p.bur-rsf);
+        addLog(b.start,p.pid+' → RUNNING  (t='+b.start+'..'+b.end+')  rem:'+p.rem,'run');
+        var isLast=!timeline.slice(step+1).some(function(x){return x.pid===p.pid;});
+        if(isLast){
+          var spd2=1500-parseInt(document.getElementById('in-spd').value);
+          setTimeout(function(){p.state='terminated';p.rem=0;renderAll(true);},spd2*.8);
+        }
+      }
+    } else {
+      procs.forEach(function(x){
+        if(x.state!=='terminated')x.state=x.arr<=b.start?'ready':'new';
+      });
+      if(b.pid==='CTX')addLog(b.start,'⇌ Context switch','');
+      else addLog(b.start,'— IDLE (t='+b.start+'..'+b.end+')','');
+    }
+    renderAll(true);
+    renderGantt(timeline, b.end);
+    step++;
+    var spd=1500-parseInt(document.getElementById('in-spd').value);
+    simTO=setTimeout(tick, spd);
+  }
+  tick();
+}
+
+// ═══════════════════════════════════════════
+// PAUSE / RESUME
+// ═══════════════════════════════════════════
+function togglePause() {
+  if(!running) return;
+  paused=!paused;
+  document.getElementById('btn-pause').textContent=paused?'▶':'⏸';
+  setPill(paused?'ppause':'prun', paused?'PAUSED':'RUNNING');
+}
+
+function setPill(cls, txt) {
+  var el=document.getElementById('pill');
+  el.className='pill '+cls;
+  el.textContent=txt;
+}
+
+// ═══════════════════════════════════════════
+// COMPARE ALL
+// ═══════════════════════════════════════════
+function compareAll() {
+  if(!procs.length||running) return;
+  var q=parseInt(document.getElementById('in-q').value)||2;
+  var algos=['FCFS','SJF','SRTF','PRI','RR'];
+  var results={};
+  algos.forEach(function(a){results[a]=runScheduler(a,cloneP());});
+
+  var grid=document.getElementById('cmp-grid');
+  grid.innerHTML=algos.map(function(n){
+    var r=results[n];
+    var done=r.ps.filter(function(p){return p.fin!=null;});
+    if(!done.length)return'';
+    var totT=done.reduce(function(m,p){return Math.max(m,p.fin);},0);
+    var busyT=done.reduce(function(s,p){return s+p.bur;},0);
+    var awt=(done.reduce(function(s,p){return s+(p.wt||0);},0)/done.length).toFixed(1);
+    var att=(done.reduce(function(s,p){return s+(p.tat||0);},0)/done.length).toFixed(1);
+    var art=(done.reduce(function(s,p){return s+(p.rt||0);},0)/done.length).toFixed(1);
+    var cpu=totT?Math.round((busyT/totT)*100):0;
+    return '<div class="cmpc"><h4>'+(n==='RR'?'RR (Q='+q+')':n)+'</h4>'+
+      '<div class="cmpr"><span class="cml">Avg Wait</span><span class="cmv" style="color:var(--c5)">'+awt+'</span></div>'+
+      '<div class="cmpr"><span class="cml">Avg TAT</span><span class="cmv" style="color:var(--c3)">'+att+'</span></div>'+
+      '<div class="cmpr"><span class="cml">Avg Response</span><span class="cmv">'+art+'</span></div>'+
+      '<div class="cmpr"><span class="cml">CPU Util</span><span class="cmv" style="color:var(--c2)">'+cpu+'%</span></div>'+
+      '<div class="cmpr"><span class="cml">Ctx Switches</span><span class="cmv">'+r.cx+'</span></div>'+
+      '<div class="cmpr"><span class="cml">Total Time</span><span class="cmv">'+totT+'</span></div>'+
+    '</div>';
+  }).join('');
+
+  // Compare chart
+  var cv=document.getElementById('cmp-c');
+  var W=cv.offsetWidth||600,H=200;cv.width=W;cv.height=H;
+  var ctx=cv.getContext('2d');ctx.clearRect(0,0,W,H);
+  var cols=['#00e5ff','#00ff9d','#ff6b35','#c77dff','#ffd60a'];
+  var awtV=algos.map(function(n){var d=results[n].ps.filter(function(p){return p.fin!=null;});return d.length?parseFloat((d.reduce(function(s,p){return s+(p.wt||0);},0)/d.length).toFixed(1)):0;});
+  var attV=algos.map(function(n){var d=results[n].ps.filter(function(p){return p.fin!=null;});return d.length?parseFloat((d.reduce(function(s,p){return s+(p.tat||0);},0)/d.length).toFixed(1)):0;});
+  var mV=Math.max.apply(null,awtV.concat(attV).concat([1]));
+  var bw=Math.min(30,(W-50)/algos.length-10),ys=(H-44)/mV;
+  algos.forEach(function(n,i){
+    var x=30+i*(bw*2+10),tw=attV[i]*ys,ww=awtV[i]*ys;
+    ctx.fillStyle=cols[i]+'33';ctx.fillRect(x,H-24-tw,bw,tw);
+    ctx.strokeStyle=cols[i];ctx.lineWidth=1.5;ctx.strokeRect(x,H-24-tw,bw,tw);
+    ctx.fillStyle='rgba(255,214,10,.2)';ctx.fillRect(x+bw+2,H-24-ww,bw,ww);
+    ctx.strokeStyle='#ffd60a';ctx.lineWidth=1;ctx.strokeRect(x+bw+2,H-24-ww,bw,ww);
+    ctx.fillStyle=cols[i];ctx.font='8px Share Tech Mono';ctx.textAlign='center';
+    ctx.fillText(n==='RR'?'RR('+q+')':n,x+bw,H-7);
+  });
+  ctx.font='8px Share Tech Mono';ctx.textAlign='left';
+  ctx.fillStyle='rgba(0,229,255,.7)';ctx.fillRect(6,5,9,6);ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillText('TAT',18,12);
+  ctx.fillStyle='rgba(255,214,10,.6)';ctx.fillRect(50,5,9,6);ctx.fillStyle='rgba(255,255,255,.4)';ctx.fillText('Wait',62,12);
+
+  stab('cmp');
+  flash('Comparison complete!','s');
+}
+
+// ═══════════════════════════════════════════
+// RESET
+// ═══════════════════════════════════════════
+function resetAll() {
+  if(simTO)clearTimeout(simTO);
+  running=false;paused=false;procs=[];cpuHist=[];pidC=1;ctxSw=0;timeline=[];
+  document.getElementById('in-pid').value='P1';
+  document.getElementById('in-bur').value='';
+  document.getElementById('in-arr').value='0';
+  ['btn-run','btn-cmp','btn-pause'].forEach(function(id){document.getElementById(id).disabled=true;});
+  document.getElementById('btn-pause').textContent='⏸';
+  setPill('pidle','IDLE');
+  ['hs-t','hs-ctx','s-ctx'].forEach(function(id){document.getElementById(id).textContent='0';});
+  ['hs-cpu','mm-cpu'].forEach(function(id){document.getElementById(id).textContent='0%';});
+  ['hs-awt','mm-awt','hs-att','mm-att'].forEach(function(id){document.getElementById(id).textContent='0.0';});
+  document.getElementById('mm-art').textContent='—';
+  document.getElementById('s-thr').textContent='0.000';
+  document.getElementById('grow').innerHTML='<div class="est" style="width:100%">Run simulation to see Gantt chart</div>';
+  document.getElementById('gleg').innerHTML='';
+  document.getElementById('tl-body').innerHTML='';document.getElementById('tl-empty').style.display='block';
+  document.getElementById('met-body').innerHTML='';document.getElementById('met-empty').style.display='block';
+  document.getElementById('cmp-grid').innerHTML='<div class="est" style="grid-column:1/-1">Click ⚡ COMPARE ALL ALGORITHMS</div>';
+  document.getElementById('logbox').innerHTML='';
+  document.getElementById('sum-panel').textContent='Run simulation.';
+  document.getElementById('alg-info').textContent=AINFO[algo];
+  ['cpu-c','bar-c','cmp-c'].forEach(function(id){
+    var c=document.getElementById(id);if(c){var cx=c.getContext('2d');cx.clearRect(0,0,c.width,c.height);}
+  });
+  renderAll(false);
+  addLog(0,'System reset. Ready.','start');
+  flash('Reset complete','s');
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+window.addEventListener('load', function(){
+  addLog(0,'OS Scheduler Pro ready. Add processes or click LOAD PRESET.','start');
+  renderAll(false);
+  document.getElementById('alg-info').textContent=AINFO[algo];
+});
+window.addEventListener('resize', drawCPU);
+</script>
+</body>
+</html>
