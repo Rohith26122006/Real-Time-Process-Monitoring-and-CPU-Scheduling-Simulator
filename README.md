@@ -21,7 +21,7 @@ The goal of this project is to bridge the gap between theoretical OS concepts an
 
 ##  Features
 
-### 🔹 Process Management
+###  Process Management
 - Add processes dynamically
 - Configure arrival time, burst time, and priority
 - Display process lifecycle:
@@ -31,20 +31,20 @@ The goal of this project is to bridge the gap between theoretical OS concepts an
   - WAITING
   - TERMINATED
 
-### 🔹 Scheduling Algorithms Implemented
+### Scheduling Algorithms Implemented
 - First Come First Serve (FCFS)
 - Shortest Job First (SJF)
 - Shortest Remaining Time First (SRTF)
 - Round Robin (RR)
 - Priority Scheduling
 
-### 🔹 Real-Time Simulation
+### Real-Time Simulation
 - Tick-based execution
 - Context switching simulation
 - Ready queue visualization
 - CPU allocation tracking
 
-### 🔹 Performance Metrics
+###  Performance Metrics
 - Waiting Time
 - Turnaround Time
 - Response Time
@@ -52,7 +52,7 @@ The goal of this project is to bridge the gap between theoretical OS concepts an
 - Throughput
 - Average Waiting Time
 
-### 🔹 Visualization
+###  Visualization
 - Live Process Table
 - CPU Core Display
 - Dynamic Gantt Chart
