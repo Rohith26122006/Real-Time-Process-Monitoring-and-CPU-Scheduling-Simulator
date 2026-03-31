@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time CPU Scheduler | OS Simulator</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon">⚙️</div>
+                <div class="logo-text">
+                    <h1>Real-Time CPU Scheduler</h1>
+                    <p>Process Monitoring & Scheduling Simulator</p>
+                </div>
+            </div>
+            <div class="team-info">
+                <span>Lovepreet Singh (12411255)</span>
+                <span>Piyush Dhami (12411498)</span>
+                <span>Vennam Siddu (12415024)</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Panel - Controls -->
+            <div class="control-panel">
+                <!-- Process Creation -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">➕ Add Process</span>
+                        <span class="badge" id="process-count">0 processes</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Process Name</label>
+                                <input type="text" id="proc-name" placeholder="P1" value="P1">
+                            </div>
+                            <div class="form-group">
+                                <label>Arrival Time</label>
+                                <input type="number" id="proc-arrival" value="0" min="0">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Burst Time</label>
+                                <input type="number" id="proc-burst" value="5" min="1">
+                            </div>
+                            <div class="form-group">
+                                <label>Priority (1=High)</label>
+                                <input type="number" id="proc-priority" value="5" min="1" max="10">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Memory (KB)</label>
+                                <input type="number" id="proc-memory" value="64" min="16" step="16">
+                            </div>
+                            <div class="form-group">
+                                <label>I/O Time</label>
+                                <input type="number" id="proc-io" value="0" min="0">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-block" onclick="addProcess()">Add Process</button>
+                        <button class="btn btn-secondary btn-block" onclick="loadPreset()">Load Preset (5 Processes)</button>
+                    </div>
+                </div>
+
+                <!-- Scheduling Configuration -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">⚡ Scheduling Algorithm</span>
+                        <span class="badge" id="current-algo">FCFS</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="algo-grid">
+                            <button class="algo-btn active" data-algo="FCFS" onclick="setAlgorithm('FCFS')">FCFS</button>
+                            <button class="algo-btn" data-algo="SJF" onclick="setAlgorithm('SJF')">SJF</button>
+                            <button class="algo-btn" data-algo="SRTF" onclick="setAlgorithm('SRTF')">SRTF</button>
+                            <button class="algo-btn" data-algo="PRIORITY" onclick="setAlgorithm('PRIORITY')">Priority</button>
+                            <button class="algo-btn" data-algo="RR" onclick="setAlgorithm('RR')">Round Robin</button>
+                        </div>
+                        <div id="quantum-control" style="display: none;">
+                            <label>Time Quantum (ms)</label>
+                            <input type="range" id="quantum" min="1" max="10" value="4" onchange="updateQuantum(this.value)">
+                            <span id="quantum-value">4</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation Controls -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">🎮 Simulation Control</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="control-buttons">
+                            <button class="btn btn-success" id="btn-start" onclick="startSim()">▶ Start</button>
+                            <button class="btn btn-warning" id="btn-pause" onclick="pauseSim()">⏸ Pause</button>
+                            <button class="btn btn-primary" id="btn-step" onclick="stepSim()">⏩ Step</button>
+                            <button class="btn btn-danger" onclick="resetSim()">↺ Reset</button>
+                        </div>
+                        <div class="speed-control">
+                            <label>Simulation Speed</label>
+                            <input type="range" id="speed" min="100" max="1000" value="500" step="50">
+                            <span id="speed-value">500ms</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Performance Stats -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📊 Performance Metrics</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="stats-grid">
+                            <div class="stat">
+                                <span class="stat-label">Time</span>
+                                <span class="stat-value" id="stat-time">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">CPU Util</span>
+                                <span class="stat-value" id="stat-cpu">0%</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Avg Wait</span>
+                                <span class="stat-value" id="stat-avg-wait">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Avg TAT</span>
+                                <span class="stat-value" id="stat-avg-tat">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Completed</span>
+                                <span class="stat-value" id="stat-completed">0</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-label">Ctx Switches</span>
+                                <span class="stat-value" id="stat-ctx">0</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel - Visualization -->
+            <div class="visualization-panel">
+                <!-- Process Table -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📋 Process Table</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-wrapper">
+                            <table class="process-table">
+                                <thead>
+                                    <tr>
+                                        <th>PID</th>
+                                        <th>Name</th>
+                                        <th>State</th>
+                                        <th>Arrival</th>
+                                        <th>Burst</th>
+                                        <th>Remaining</th>
+                                        <th>Priority</th>
+                                        <th>Wait</th>
+                                        <th>TAT</th>
+                                        <th>Response</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="process-table-body">
+                                    <tr><td colspan="10" class="text-center">No processes added</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gantt Chart -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📈 Gantt Chart</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="gantt-container" id="gantt-container">
+                            <div class="text-center text-muted">Run simulation to see Gantt chart</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Event Log -->
+                <div class="card">
+                    <div class="card-header">
+                        <span class="card-title">📝 Event Log</span>
+                        <button class="btn-small" onclick="clearLog()">Clear</button>
+                    </div>
+                    <div class="card-body">
+                        <div class="event-log" id="event-log">
+                            <div class="event-entry">System ready. Add processes and start simulation.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
